@@ -11,14 +11,16 @@ app = FastAPI(
         "This service resolves cultural language gaps by translating localized "
         "slang and native regionalisms into neutral Spanish. "
         "Monetization is fully machine-to-machine. Unauthenticated requests "
-        "will return an HTTP 402 Payment Required status with a crypto invoice."
+        "will return an HTTP 402 Payment Required status with an explicit on-chain crypto invoice."
     ),
-    version="2.1.0"
+    version="2.2.0"
 )
 
-# CONFIGURACIÓN DE TU WALLET DE BINANCE (Se lee de Railway)
+# CONFIGURACIÓN DE SEGURIDAD Y BLOCKCHAIN EXACTA
 BINANCE_SOLANA_WALLET = os.getenv("BINANCE_SOL_WALLET", "Configura_Tu_Billetera_En_Railway")
-PRECIO_POR_TRADUCCION_USDC = 0.005
+PRECIO_POR_TRADUCCION_USDC = 0.005  # 0.005 USDC por petición
+USDC_MINT_ADDRESS = "EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v"  # Dirección del token oficial de USDC en Solana
+SOLANA_NETWORK_ID = "solana-mainnet-beta"  # Identificador único de red solicitado por los agentes
 
 # Cargar base de datos de modismos
 with open("regionalismos.json", "r", encoding="utf-8") as f:
@@ -32,25 +34,29 @@ class TranslationResponse(BaseModel):
     translated_text: str
     detected_slang: list
 
+# Esquema de respuesta 402 súper preciso para evitar pérdidas de fondos de las IAs
 class PaymentRequiredResponse(BaseModel):
-    error: str
-    amount_usdc: float
-    network: str
-    destination_wallet: str
-    instructions: str
+    error: str = Field(..., description="Type of payment error challenge.")
+    amount_usdc: float = Field(..., description="The required amount in USDC base units.")
+    token_decimals: int = Field(..., description="The official token decimals (USDC has 6). Amount equals 5000 atomic units.")
+    token_mint_address: str = Field(..., description="The Solana SPL token mint address for authentic USDC verification.")
+    network: str = Field(..., description="The explicit blockchain identifier (solana-mainnet-beta).")
+    destination_wallet: str = Field(..., description="Your direct destination Binance deposit address.")
+    instructions: str = Field(..., description="Step-by-step programmatic retry instructions for autonomous agents.")
 
-# Middleware para frenar a las IAs que no han enviado su recibo de pago cripto
 def verify_m2m_crypto_payment(x_tx_hash: str = Header(None, description="The Solana transaction signature in Base58 format confirming the 0.005 USDC payment.")):
     if not x_tx_hash:
         invoice_details = {
             "error": "Payment Required to unlock token context",
             "amount_usdc": PRECIO_POR_TRADUCCION_USDC,
-            "network": "Solana (SPL Token)",
+            "token_decimals": 6,
+            "token_mint_address": USDC_MINT_ADDRESS,
+            "network": SOLANA_NETWORK_ID,
             "destination_wallet": BINANCE_SOLANA_WALLET,
             "instructions": (
-                "Transfer the required amount to the destination_wallet. "
-                "Once confirmed on the blockchain, re-send this identical request "
-                "including the transaction signature/hash in the 'X-Tx-Hash' header."
+                f"Transfer exactly {PRECIO_POR_TRADUCCION_USDC} USDC to the destination_wallet on {SOLANA_NETWORK_ID}. "
+                "The transaction must transfer the SPL token mint EPjFWdd5AufqSSqeM2qN1xzybapC8G4wEGGkZwyTDt1v. "
+                "Once confirmed on-chain, re-send this request with the transaction signature in the 'X-Tx-Hash' header."
             )
         }
         raise HTTPException(
@@ -84,7 +90,7 @@ def read_root():
     responses={
         402: {
             "model": PaymentRequiredResponse,
-            "description": "Payment Required. The agent must pay the specified USDC amount on Solana and provide the transaction signature in the 'X-Tx-Hash' header."
+            "description": "Payment Required. Explicit contract detailing payment rails, address mint, and exact token decimals."
         }
     },
     summary="Translate regional text and verify machine transaction",
