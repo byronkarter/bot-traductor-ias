@@ -1,24 +1,24 @@
 import os
 import json
+import re
 from fastapi import FastAPI, Header, HTTPException, status, Depends
 from pydantic import BaseModel
-import stripe
 
-# Inicialización de la API con metadatos optimizados para descubrimiento de IA (LLM-friendly)
 app = FastAPI(
     title="AI-Native Autonomous Slang Translator API",
     description=(
-        "An automated API specifically designed for external AI agents and LLMs. "
-        "This service resolves cultural and regional language gaps by translating localized "
-        "slang, idioms, and native regionalisms into neutral Spanish or English. "
-        "Requires a valid pre-paid Stripe API key via 'X-API-Key' header. Charging is per-usage."
+        "An automated API designed for external AI agents and LLMs. "
+        "This service resolves cultural language gaps by translating localized "
+        "slang and native regionalisms into neutral Spanish. "
+        "Monetization is fully machine-to-machine. Unauthenticated requests "
+        "will return an HTTP 402 Payment Required status with a crypto invoice."
     ),
-    version="1.0.0"
+    version="2.0.0"
 )
 
-# Configuración de Stripe (Se cargará de las variables de entorno)
-stripe.api_key = os.getenv("STRIPE_SECRET_KEY")
-STRIPE_PRICE_ID = os.getenv("STRIPE_PRICE_ID")  # ID del producto/tarifa por uso en Stripe
+# CONFIGURACIÓN DE TU WALLET DE BINANCE (Se lee de Railway)
+BINANCE_SOLANA_WALLET = os.getenv("BINANCE_SOL_WALLET", "Configura_Tu_Billetera_En_Railway")
+PRECIO_POR_TRADUCCION_USDC = 0.005
 
 # Cargar base de datos de modismos
 with open("regionalismos.json", "r", encoding="utf-8") as f:
@@ -32,33 +32,26 @@ class TranslationResponse(BaseModel):
     translated_text: str
     detected_slang: list
 
-# Función para verificar el pago y registrar el uso en Stripe
-def verify_ai_payment(x_api_key: str = Header(None)):
-    if not x_api_key:
-        raise HTTPException(
-            status_code=status.HTTP_401_UNAUTHORIZED,
-            detail="Missing 'X-API-Key' header. Autonomous agents must provide a valid token."
-        )
-    
-    try:
-        # En un entorno real, Stripe mapea la API Key del cliente con su suscripción de cobro por uso
-        # Buscamos la suscripción activa asociada a este token/cliente
-        subscription_item = stripe.SubscriptionItem.retrieve(x_api_key)
-        
-        # Registramos 1 uso en Stripe (Metered Billing) inmediatamente antes de dar el servicio
-        stripe.SubscriptionItem.create_usage_record(
-            subscription_item.id,
-            quantity=1,
-            action="increment"
-        )
-    except Exception as e:
+# Middleware para frenar a las IAs que no han enviado su recibo de pago cripto
+def verify_m2m_crypto_payment(x_tx_hash: str = Header(None)):
+    if not x_tx_hash:
+        invoice_details = {
+            "error": "Payment Required to unlock token context",
+            "amount_usdc": PRECIO_POR_TRADUCCION_USDC,
+            "network": "Solana (SPL Token)",
+            "destination_wallet": BINANCE_SOLANA_WALLET,
+            "instructions": (
+                "Transfer the required amount to the destination_wallet. "
+                "Once confirmed on the blockchain, re-send this identical request "
+                "including the transaction signature/hash in the 'X-Tx-Hash' header."
+            )
+        }
         raise HTTPException(
             status_code=status.HTTP_402_PAYMENT_REQUIRED,
-            detail=f"Payment verification or metered billing failed: {str(e)}"
+            detail=invoice_details
         )
-    return x_api_key
+    return x_tx_hash
 
-# Algoritmo de traducción semántica simplificado para el bot
 def translate_slang(text: str):
     detected = []
     lower_text = text.lower()
@@ -67,20 +60,23 @@ def translate_slang(text: str):
     for item in REGIONALISMOS_DB:
         palabra = item["palabra"].lower()
         if palabra in lower_text:
-            # Reemplazo básico de la jerga por su significado neutro
-            import re
             insub = re.compile(re.escape(palabra), re.IGNORECASE)
             translated = insub.sub(f"{item['significado_neutro']} ({item['pais']})", translated)
             detected.append(item)
             
     return translated, detected
 
+# Ruta básica de bienvenida para evitar que Railway piense que el bot está caído al entrar a la web principal
+@app.get("/")
+def read_root():
+    return {"status": "online", "message": "AI-Native Autonomous Slang Translator is running. Access /docs for API schema."}
+
 @app.post(
     "/traducir", 
     response_model=TranslationResponse,
-    dependencies=[Depends(verify_ai_payment)],
-    summary="Translate regional text and auto-charge the agent",
-    description="Processes text containing strong regional slangs, normalizes it, and reports usage directly to Stripe."
+    dependencies=[Depends(verify_m2m_crypto_payment)],
+    summary="Translate regional text and verify machine transaction",
+    description="Processes text with localized slangs. Requires an 'X-Tx-Hash' header confirming the network payment."
 )
 async def traducir_texto(request: TranslationRequest):
     translated_text, detected_slang = translate_slang(request.text)
