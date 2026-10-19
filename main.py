@@ -2,7 +2,7 @@ import os
 import json
 import re
 from fastapi import FastAPI, Header, HTTPException, status, Depends
-from pydantic import BaseModel
+from pydantic import BaseModel, Field
 
 app = FastAPI(
     title="AI-Native Autonomous Slang Translator API",
@@ -13,7 +13,7 @@ app = FastAPI(
         "Monetization is fully machine-to-machine. Unauthenticated requests "
         "will return an HTTP 402 Payment Required status with a crypto invoice."
     ),
-    version="2.0.0"
+    version="2.1.0"
 )
 
 # CONFIGURACIÓN DE TU WALLET DE BINANCE (Se lee de Railway)
@@ -25,15 +25,22 @@ with open("regionalismos.json", "r", encoding="utf-8") as f:
     REGIONALISMOS_DB = json.load(f)
 
 class TranslationRequest(BaseModel):
-    text: str
+    text: str = Field(..., description="The localized text containing regional slang to be translated.")
 
 class TranslationResponse(BaseModel):
     original_text: str
     translated_text: str
     detected_slang: list
 
+class PaymentRequiredResponse(BaseModel):
+    error: str
+    amount_usdc: float
+    network: str
+    destination_wallet: str
+    instructions: str
+
 # Middleware para frenar a las IAs que no han enviado su recibo de pago cripto
-def verify_m2m_crypto_payment(x_tx_hash: str = Header(None)):
+def verify_m2m_crypto_payment(x_tx_hash: str = Header(None, description="The Solana transaction signature in Base58 format confirming the 0.005 USDC payment.")):
     if not x_tx_hash:
         invoice_details = {
             "error": "Payment Required to unlock token context",
@@ -66,7 +73,6 @@ def translate_slang(text: str):
             
     return translated, detected
 
-# Ruta básica de bienvenida para evitar que Railway piense que el bot está caído al entrar a la web principal
 @app.get("/")
 def read_root():
     return {"status": "online", "message": "AI-Native Autonomous Slang Translator is running. Access /docs for API schema."}
@@ -75,6 +81,12 @@ def read_root():
     "/traducir", 
     response_model=TranslationResponse,
     dependencies=[Depends(verify_m2m_crypto_payment)],
+    responses={
+        402: {
+            "model": PaymentRequiredResponse,
+            "description": "Payment Required. The agent must pay the specified USDC amount on Solana and provide the transaction signature in the 'X-Tx-Hash' header."
+        }
+    },
     summary="Translate regional text and verify machine transaction",
     description="Processes text with localized slangs. Requires an 'X-Tx-Hash' header confirming the network payment."
 )
