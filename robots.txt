@@ -1,0 +1,6 @@
+User-agent: *
+Allow: /docs
+Allow: /openapi.json
+
+User-agent: GPTBot
+Allow: /
