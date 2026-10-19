@@ -1,0 +1,10 @@
+[
+  { "palabra": "chamba", "pais": "México", "region_especifica": "General", "significado_neutro": "trabajo o empleo", "ejemplo_uso": "Tengo que ir a la chamba temprano.", "contexto": "informal" },
+  { "palabra": "neta", "pais": "México", "region_especifica": "General", "significado_neutro": "verdad o sinceridad", "ejemplo_uso": "¿Es neta lo que me estás diciendo?", "contexto": "informal" },
+  { "palabra": "parce", "pais": "Colombia", "region_especifica": "Antioquia/General", "significado_neutro": "amigo o compañero", "ejemplo_uso": "¿Qué más, parce? ¿Cómo estás?", "contexto": "informal" },
+  { "palabra": "chévere", "pais": "Colombia", "region_especifica": "General", "significado_neutro": "bueno, agradable o genial", "ejemplo_uso": "La película estuvo muy chévere.", "contexto": "informal" },
+  { "palabra": "che", "pais": "Argentina", "region_especifica": "General", "significado_neutro": "persona (para llamar la atención)", "ejemplo_uso": "Che, vení un minuto por favor.", "contexto": "informal" },
+  { "palabra": "quilombo", "pais": "Argentina", "region_especifica": "General", "significado_neutro": "problema, lío o desorden", "ejemplo_uso": "Se armó un quilombo en la calle.", "contexto": "informal" },
+  { "palabra": "guiri", "pais": "España", "region_especifica": "General", "significado_neutro": "turista extranjero", "ejemplo_uso": "Las playas están llenas de guiris.", "contexto": "informal" },
+  { "palabra": "molar", "pais": "España", "region_especifica": "General", "significado_neutro": "gustar mucho o ser excelente", "ejemplo_uso": "Tus zapatillas nuevas molan un montón.", "contexto": "informal" }
+]
